@@ -1,67 +1,160 @@
+const os = require("os");
+const { createCanvas, loadImage } = require("canvas");
 const fs = require("fs");
-const moment = require("moment-timezone");
+const path = require("path");
+
+const W = 490, H = 840;
+const AVATAR1 = "https://i.imgur.com/5L1We9h.jpeg";
+const FALLBACK_AVATAR = "https://i.ibb.co/MC6bT5V/default-avatar.png"; // fallback if error
+
+function formatUptime(ms) {
+  const totalSeconds = Math.floor(ms / 1000);
+  const days = Math.floor(totalSeconds / (3600 * 24));
+  const hours = Math.floor((totalSeconds % (3600 * 24)) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${days}d ${hours}h ${minutes}m ${seconds}s`;
+}
+
+async function drawDodecagonAvatar(ctx, url, x, y, size, ringColors) {
+  const sides = 12;
+  const radius = size / 2;
+
+  for (let i = 0; i < ringColors.length; i++) {
+    ctx.beginPath();
+    for (let j = 0; j < sides; j++) {
+      const angle = (Math.PI * 2 / sides) * j;
+      const rx = x + radius + Math.cos(angle) * (radius + i * 8);
+      const ry = y + radius + Math.sin(angle) * (radius + i * 8);
+      if (j === 0) ctx.moveTo(rx, ry);
+      else ctx.lineTo(rx, ry);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = ringColors[i];
+    ctx.lineWidth = 4;
+    ctx.shadowColor = ringColors[i];
+    ctx.shadowBlur = 20;
+    ctx.stroke();
+  }
+
+  let img;
+  try { img = await loadImage(url); }
+  catch { img = await loadImage(FALLBACK_AVATAR); }
+
+  ctx.save();
+  ctx.beginPath();
+  for (let j = 0; j < sides; j++) {
+    const angle = (Math.PI * 2 / sides) * j;
+    const rx = x + radius + Math.cos(angle) * radius;
+    const ry = y + radius + Math.sin(angle) * radius;
+    if (j === 0) ctx.moveTo(rx, ry);
+    else ctx.lineTo(rx, ry);
+  }
+  ctx.closePath();
+  ctx.clip();
+  ctx.drawImage(img, x, y, size, size);
+  ctx.restore();
+}
+
+async function drawPage1(ctx) {
+  
+  const gradient = ctx.createLinearGradient(0, 0, 0, H);
+  gradient.addColorStop(0, "#4b006e");
+  gradient.addColorStop(1, "#1a001f");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, W, H);
+
+  const particles = [
+    { x: 50, y: 120, r: 3 }, { x: 120, y: 230, r: 2.5 },
+    { x: 300, y: 180, r: 3.5 }, { x: 400, y: 310, r: 2 },
+    { x: 180, y: 360, r: 3 }, { x: 420, y: 430, r: 2.2 },
+    { x: 80, y: 500, r: 3.2 }, { x: 350, y: 520, r: 2.7 },
+    { x: 220, y: 600, r: 3.8 }, { x: 430, y: 670, r: 2.6 }
+  ];
+  for (const p of particles) {
+    ctx.beginPath();
+    ctx.fillStyle = "rgba(255, 102, 204, 0.15)";
+    ctx.shadowColor = "rgba(255, 102, 204, 0.7)";
+    ctx.shadowBlur = 10;
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  await drawDodecagonAvatar(ctx, AVATAR1, W / 2 - 90, 60, 180, [
+    "#ff99cc", "#ff33aa", "#cc0077"
+  ]);
+
+  ctx.font = "bold 38px Arial";
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#ff99cc";
+  ctx.shadowColor = "#ff33aa";
+  ctx.shadowBlur = 25;
+  ctx.fillText("Rifat Ahmed", W / 2, 295); // slightly lower
+
+  ctx.font = "italic 20px Arial";
+  ctx.fillStyle = "#ff66cc";
+  ctx.shadowColor = "#cc3399";
+  ctx.shadowBlur = 15;
+  ctx.fillText("Owner Information", W / 2, 330);
+
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "rgba(255,255,255,0.06)";
+  ctx.fillRect(40, 360, W - 80, 360);
+
+  ctx.strokeStyle = "#cc3399";
+  ctx.lineWidth = 2;
+  ctx.shadowColor = "#ff66cc";
+  ctx.shadowBlur = 12;
+  ctx.strokeRect(40, 360, W - 80, 360);
+
+  ctx.font = "22px Arial";
+  ctx.fillStyle = "#f2ccff";
+  ctx.shadowColor = "#cc33aa";
+  ctx.shadowBlur = 12;
+
+  const lines = [
+    "Nickname: Zefox", "Age: 18+", "DOB: 11 December  2007",
+    "Gender: Male", "Religion: Islam", "Nationality: Bangladeshi",
+    "Location: Dhaka,Gazipur ", "Class: 10",
+    `Time: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Dhaka" })}`
+  ];
+  let y = 400;
+  for (const line of lines) {
+    ctx.fillText(line, W / 2, y);
+    y += 38;
+  }
+
+  ctx.font = "italic 18px Arial";
+  ctx.fillStyle = "#e673ff";
+  ctx.shadowColor = "#ff99ff";
+  ctx.shadowBlur = 25;
+  const obf = String.fromCharCode(169) + " S\x61imx69x";
+  ctx.fillText(obf, W / 2, H - 35);
+}
 
 module.exports = {
-	config: {
-		name: "info",
-		version: "1.0",
-		author: "Jadid",
-		countDown: 20,
-		role: 0,
-		shortDescription: { vi: "", en: "" },
-		longDescription: { vi: "", en: "" },
-		category: "owner",
-		guide: { en: "" },
-		envConfig: {}
-	},
-	onStart: async function ({ message }) {
-		const authorName = "⩸𝐑𝐀𝐉⩸";
-		const ownAge = "『 ⩸__17__⩸ 』";
-		const messenger = "https://m.me/j/AbZJ-PMgDrm03PsV/";
-		const authorFB = "https://www.facebook.com/XERA.PHIS.2008";
-		const authorNumber = "+8801319039003";
-		const status = "Single";
-		const urls = [
-			"https://ik.imagekit.io/ylceaheqh/GCcrOFehYWohdcSbYwWdgGpFA0P.jpg", // Replace with your valid image URLs
-			"https://ik.imagekit.io/ylceaheqh/GCcrOFehYWohdcSbYwWdgGpFA0P.jpg"
-		];
-		const link = urls[Math.floor(Math.random() * urls.length)];
-		const now = moment().tz("Asia/Jakarta");
-		const date = now.format("MMMM Do YYYY");
-		const time = now.format("h:mm:ss A");
-		const uptime = process.uptime();
-		const seconds = Math.floor(uptime % 60);
-		const minutes = Math.floor((uptime / 60) % 60);
-		const hours = Math.floor((uptime / (60 * 60)) % 24);
-		const days = Math.floor(uptime / (60 * 60 * 24));
-		const uptimeString = `${days} days ${hours} hours ${minutes} minutes ${seconds} seconds`;
+  config: {
+    name: "info",
+    aliases: ["in4", "ownerinfo"],
+    version: "1.0",
+    author: "Zefox",
+    countDown: 5,
+    role: 0,
+    shortDescription: "Owner info",
+    category: "information"
+  },
 
-		message.reply({
-			body: `💫《 ⩸__𝐁𝐨𝐭 𝐀𝐧𝐝 𝐎𝐰𝐧𝐞𝐫 𝐈𝐧𝐟𝐨𝐫𝐦𝐚𝐭𝐢𝐨𝐧__⩸ 》💫
-🤖 彡𝐵𝑜𝑡 𝑁𝑎𝑚𝑒 : ${global.GoatBot.config.nickNameBot}__⩸
-👾 彡𝐵𝑜𝑡 𝑆𝑦𝑠𝑡𝑒𝑚 𝑃𝑟𝑒𝑓𝑖𝑥 : ${global.GoatBot.config.prefix}
-💙 彡𝑂𝑤𝑛𝑒𝑟 𝑁𝑎𝑚𝑒 : ${authorName}
-📝 彡𝐴𝑔𝑒 : ${ownAge}
-💕 彡𝑅𝑒𝑙𝑎𝑡𝑖𝑜𝑛𝑆ℎ𝑖𝑝 : ${status}
-🌐 彡𝑊𝑝 : আমার ex এর কাছে আছে 😬
-🌍 彡𝐹𝑎𝑐𝑒𝑏𝑜𝑜𝑘 𝐿𝑖𝑛𝑘 : ${authorFB}
-🗓 彡𝐷𝑎𝑡𝑒 : ${date}
-⏰ 彡𝑁𝑜𝑤 𝑇𝑖𝑚𝑒 : ${time}
-🔰 彡𝐴𝑛𝑦 𝐻𝑒𝑙𝑝 𝐶𝑜𝑛𝑡𝑎𝑐𝑡 : ${messenger}
-📛 彡𝐵𝑜𝑡 𝐼𝑠 𝑅𝑢𝑛𝑛𝑖𝑛𝑔 𝐹𝑜𝑟 : ${uptimeString}
+  onStart: async function ({ message }) {
+    const canvas = createCanvas(W, H);
+    const ctx = canvas.getContext("2d");
 
-𝑻𝒈: @xa8ko9ad8d
-𝑰𝒏𝒔𝒕𝒂: দিব না শরম করে 🤐  
-𝑪𝒂𝒑𝑪𝒖𝒕: একাউন্ট নাই। কিন্তু ইডিট করি 😗  
-𝑻𝒊𝒌𝑻𝒐𝒌: xaiko_obito_007/xaiko_obito_009
-𝒀𝒐𝒖𝑻𝒖𝒃𝒆: itsmeobito007  
-===============`,
-			attachment: await global.utils.getStreamFromURL(link)
-		});
-	},
-	onChat: async function ({ event, message }) {
-		if (event.body && event.body.toLowerCase() === "info") {
-			this.onStart({ message });
-		}
-	}
+    await drawPage1(ctx);
+
+    const buffer = canvas.toBuffer("image/png");
+    const dir = path.join(__dirname, "cache");
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir);
+    const filePath = path.join(dir, `info_page.png`);
+    fs.writeFileSync(filePath, buffer);
+    return message.reply({ attachment: fs.createReadStream(filePath) });
+  }
 };
